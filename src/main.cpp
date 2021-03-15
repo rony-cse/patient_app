@@ -1,46 +1,42 @@
 #include <Arduino.h>
-
 #include <Wire.h>
 #include <SPI.h>
 #include "algorithm_by_RF.h"
 #include "max30102.h"
 #include "MAX30105.h" // MAX3010x library
-
 #include "heartRate.h"
+// #define DEBUG                                           // Uncomment for debug output to the Serial stream
 
-//#define DEBUG                                           // Uncomment for debug output to the Serial stream
 
 // Interrupt pin
 const byte oxiInt = 13; // pin connected to MAX30102 INT
 byte readLED = 2;       //Blinks with each data read
 MAX30105 particleSensor;
-
 uint32_t aun_ir_buffer[BUFFER_SIZE];  //infrared LED sensor data
 uint32_t aun_red_buffer[BUFFER_SIZE]; //red LED sensor data
 float old_n_spo2;                     // Previous SPO2 value
 uint8_t uch_dummy, k;
 bool isFingerPlaced = false;
-
 const byte RATE_SIZE = 4; //Increase this for more averaging. 4 is good.
 byte rates[RATE_SIZE];    //Array of heart rates
 byte rateSpot = 0;
 long lastBeat = 0; //Time at which the last beat occurred
-
 float beatsPerMinute;
 int beatAvg;
 long irValue;
-
 uint8_t revID;
 uint8_t partID;
-
 float n_spo2, ratio, correl; //SPO2 value
 int8_t ch_spo2_valid;        //indicator to show if the SPO2 calculation is valid
 int32_t n_heart_rate;        //heart rate value
 int8_t ch_hr_valid;          //indicator to show if the heart rate calculation is valid
 int32_t i;
 int first = 1;
+
 void processHRandSPO2();
 void bpm();
+
+
 void setup()
 {
   Wire.setClock(400000); // Set I2C speed to 400kHz
@@ -69,7 +65,9 @@ void setup()
   Serial.print(" Part ");
   Serial.println(partID, HEX);
   Serial.print("-------------------------------------");
+  while(1){}
 #endif
+
 }
 
 //Continuously taking samples from MAX30102.  Heart rate and SpO2 are calculated every ST seconds
