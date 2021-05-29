@@ -1,20 +1,19 @@
 #include <Arduino.h>
-
+#include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <SPI.h>
 #include <Adafruit_Fingerprint.h>
 #include <Keypad.h>
 #include "algorithm_by_RF.h"
-#include "max30102.h"
 #include "MAX30105.h" // MAX3010x library
+#include "max30102.h"
 #include "heartRate.h"
-#include <Wire.h>
 // #define DEBUG                                           // Uncomment for debug output to the Serial stream
 
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 // Interrupt pin
 const byte oxiInt = 13; // pin connected to MAX30102 INT
-byte readLED = 2;       //Blinks with each data read
+const byte readLED = 2; //Blinks with each data read
 MAX30105 particleSensor;
 uint32_t aun_ir_buffer[BUFFER_SIZE];  //infrared LED sensor data
 uint32_t aun_red_buffer[BUFFER_SIZE]; //red LED sensor data
@@ -37,9 +36,9 @@ int8_t ch_hr_valid;          //indicator to show if the heart rate calculation i
 int32_t i;
 int first = 1;
 
-#define COLUMS 16
-#define ROWS 2
-#define PAGE ((COLUMS) * (ROWS))
+// #define COLUMS 16
+// #define ROWS 2
+// #define PAGE ((COLUMS) * (ROWS))
 #define fpSerial Serial2
 
 const int ROW_NUM = 4;    //four rows
@@ -50,8 +49,8 @@ char keys[ROW_NUM][COLUMN_NUM] = {
     {'7', '8', '9', 'C'},
     {'*', '0', '#', 'D'}};
 uint8_t id;
-byte pin_rows[ROW_NUM] = {14, 27, 26, 25};      //connect to the row pinouts of the keypad
-byte pin_column[COLUMN_NUM] = {33, 32, 35, 34}; //connect to the column pinouts of the keypad
+byte pin_rows[ROW_NUM] = {14, 27, 26, 25};     //connect to the row pinouts of the keypad
+byte pin_column[COLUMN_NUM] = {33, 32, 15, 4}; //connect to the column pinouts of the keypad
 char key;
 
 Adafruit_Fingerprint finger = Adafruit_Fingerprint(&fpSerial);
@@ -59,7 +58,8 @@ Keypad keypad = Keypad(makeKeymap(keys), pin_rows, pin_column, ROW_NUM, COLUMN_N
 
 void processHRandSPO2();
 void bpm();
-void take_bpm();
+int take_bpm();
+
 uint8_t getFingerprintEnroll()
 {
   int p = -1;
@@ -258,88 +258,76 @@ int getFingerprintIDez()
 }
 void enrole()
 {
-  String input_id;
-  while (1)
+  int known = getFingerprintIDez();
+  if (known != -1)
   {
-    lcd.clear();
-    lcd.print("Enter ID # 1-127");
+    String input_id;
     while (1)
     {
-      key = keypad.getKey();
-      if (key)
+      lcd.clear();
+      lcd.print("Enter ID # 1-127");
+      while (1)
       {
-        if (key == '#')
+        key = keypad.getKey();
+        if (key)
         {
+          if (key == '#')
+          {
 
-          Serial.println("Break");
-          break;
-        }
-        else if (key == '1' || key == '2' || key == '3' || key == '4' || key == '5' || key == '6' || key == '7' || key == '8' || key == '9' || key == '0')
-        {
-          input_id += key;
-          lcd.clear();
-          lcd.print("Enter ID # 1-127");
-          lcd.setCursor(0, 1);
-          lcd.print(input_id);
-        }
-        else if (key == 'C')
-        {
+            Serial.println("Break");
+            break;
+          }
+          else if (key == '1' || key == '2' || key == '3' || key == '4' || key == '5' || key == '6' || key == '7' || key == '8' || key == '9' || key == '0')
+          {
+            input_id += key;
+            lcd.clear();
+            lcd.print("Enter ID # 1-127");
+            lcd.setCursor(0, 1);
+            lcd.print(input_id);
+          }
+          else if (key == 'C')
+          {
 
-          break;
+            break;
+          }
         }
       }
-    }
-    if (key == 'C')
-    {
+      if (key == 'C')
+      {
 
-      lcd.clear();
-      lcd.print("Cancel");
-      break;
-    }
-    id = input_id.toInt();
-    if (id == 0)
-    {
-      lcd.clear();
-      lcd.print("0 not Allowed");
-    }
-    else
-    {
-      lcd.clear();
-      lcd.print("Enrolling ID # ");
-      lcd.print(id);
-      while (!getFingerprintEnroll())
-        ;
+        lcd.clear();
+        lcd.print("Cancel");
+        break;
+      }
+      id = input_id.toInt();
+      if (id == 0)
+      {
+        lcd.clear();
+        lcd.print("0 not Allowed");
+      }
+      else
+      {
+        lcd.clear();
+        lcd.print("Enrolling ID # ");
+        lcd.print(id);
+        while (!getFingerprintEnroll())
+          ;
+      }
     }
   }
+  else
+  {
+    lcd.clear();
+    lcd.print("Not Authorized!");
+  }
 }
-// int limit = 800;
-// int data[5][2] = {{1, 1},
-// 				  {1, 1},
-// 				  {1, 1},
-// 				  {1, 1},
-// 				  {1, 1}};
-// int plus_one[5][2] = {{1, 1},
-// 					  {0, 1},
-// 					  {0, 0},
-// 					  {1, 0},
-// 					  {1, 1}};
-// int minus_one[5][2] = {{1, 1},
-// 					   {1, 0},
-// 					   {0, 0},
-// 					   {0, 1},
-// 					   {1, 1}};
-int ii;
-int j;
-bool equal = true;
-int person = 0;
 
 void setup()
 {
   lcd.init(); // initialize the lcd
   lcd.backlight();
-  Serial.begin(9600);
-  Wire.setClock(400000); // Set I2C speed to 400kHz
-
+  Serial.begin(115200);
+  Wire.setClock(400000);  // Set I2C speed to 400kHz
   pinMode(oxiInt, INPUT); //pin D10 connects to the interrupt output pin of the MAX30102
   pinMode(readLED, OUTPUT);
   Wire.begin();
@@ -348,7 +336,7 @@ void setup()
   particleSensor.setup();
   particleSensor.setPulseAmplitudeRed(0x0A); //Turn Red LED to low to indicate sensor is running
   particleSensor.setPulseAmplitudeGreen(0);  //Turn off Green LED
-  Serial.begin(115200);
+
   maxim_max30102_reset(); //resets the MAX30102
   delay(1000);
   maxim_max30102_read_reg(REG_INTR_STATUS_1, &uch_dummy); //Reads/clears the interrupt status register
@@ -357,7 +345,6 @@ void setup()
 
   maxim_max30102_read_reg(0xFE, &revID);
   maxim_max30102_read_reg(0xFF, &partID);
-
 #ifdef DEBUG
   Serial.print("Rev ");
   Serial.print(revID, HEX);
@@ -368,54 +355,81 @@ void setup()
   {
   }
 #endif
+  //***************
+  //   FINGER
+  //***************
+  finger.begin(57600);
+  if (finger.verifyPassword())
+  {
+    Serial.println("Found fingerprint sensor!");
+  }
+  else
+  {
+    Serial.println("Did not find fingerprint sensor :(");
+    while (1)
+    {
+      delay(1);
+    }
+  }
 }
 
-//Continuously taking samples from MAX30102.  Heart rate and SpO2 are calculated every ST seconds
 void loop()
 {
+  key = keypad.getKey();
+  if (key == 'A') //*************Add new patient
+  {
+    enrole();
+  }
+  if (key == 'B') //*************Test Patient
+  {
+    lcd.clear();
+    lcd.print("Patient: ");
+    int known = getFingerprintIDez();
+    while (known == -1)
+    {
+      int known = getFingerprintIDez();
+      if (known != -1)
+      {
+        lcd.clear();
+        lcd.print("Patient: ");
+        lcd.print(known);
+        lcd.setCursor(0, 1);
+        lcd.print("Measuring BPM, O2, Temp");
+        while (take_bpm())
+        {
+          key = keypad.getKey();
+          if (key == 'C')
+          {
+            lcd.clear();
+            lcd.print("Canceled");
+            delay(1000);
+            break;
+          }
+        }
 
+        delay(100);
+        break;
+      }
+      else
+      {
+        lcd.clear();
+        lcd.print("Place finger");
+        delay(100);
+      }
+      key = keypad.getKey();
+      if (key == 'C')
+      {
+        lcd.clear();
+        lcd.print("Canceled");
+        delay(1000);
+        break;
+      }
+    }
+  }
   lcd.clear();
-  lcd.print("OK");
-  delay(100);
-  take_bpm();
-  // maxim_max30102_reset();
-  // delay(1000);
-  // maxim_max30102_read_reg(REG_INTR_STATUS_1, &uch_dummy); //Reads/clears the interrupt status register
-  // maxim_max30102_init();                                  //initialize the MAX30102
-  // old_n_spo2 = 0.0;
-
-  // maxim_max30102_read_reg(0xFE, &revID);
-  // maxim_max30102_read_reg(0xFF, &partID);
-  // n_spo2 = -999;
-  // while (n_spo2 == -999)
-  // {
-  //   processHRandSPO2();
-  //   Serial.print(n_spo2);
-  // }
-  // Serial.println(n_spo2);
-  // first = 1;
-  // for (int ii = 0; ii < 200; ii++)
-  // {
-  //   bpm();
-  // }
-  // lcd.clear();
-  // Serial.print("IR=");
-  // Serial.print(irValue);
-  // Serial.print(", BPM=");
-  // lcd.print("BPM= ");
-  // lcd.print(beatAvg);
-  // Serial.print(beatsPerMinute);
-  // Serial.print(", Avg BPM=");
-  // Serial.print(beatAvg);
-
-  // if (irValue < 50000)
-  //   Serial.print(" No finger?");
-
-  // Serial.println();
-
-  // Serial.println("Break.........");
 }
-void take_bpm()
+
+int take_bpm()
 {
   maxim_max30102_reset();
   delay(1000);
@@ -426,10 +440,12 @@ void take_bpm()
   maxim_max30102_read_reg(0xFE, &revID);
   maxim_max30102_read_reg(0xFF, &partID);
   n_spo2 = -999;
-  // while (n_spo2 == -999)
-  // {
+  //*******
+  while (n_spo2 == -999)
+  {
   processHRandSPO2();
-  // }
+  }
+  //***********
   Serial.println(n_spo2);
   first = 1;
   irValue = particleSensor.getIR();
@@ -439,7 +455,7 @@ void take_bpm()
     {
       bpm();
     }
-    lcd.clear();
+    lcd.setCursor(0, 1);
     Serial.print("IR=");
     Serial.print(irValue);
     Serial.print(", BPM=");
@@ -448,15 +464,13 @@ void take_bpm()
     Serial.print(beatsPerMinute);
     Serial.print(", Avg BPM=");
     Serial.print(beatAvg);
+    return 0;
   }
   else
   {
     Serial.print(" No finger?");
+    return 1;
   }
-
-  Serial.println();
-
-  Serial.println("Break.........");
 }
 void bpm()
 {
