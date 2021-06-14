@@ -310,8 +310,7 @@ void enrole()
         lcd.clear();
         lcd.print("Enrolling ID # ");
         lcd.print(id);
-        while (!getFingerprintEnroll())
-          ;
+        while (!getFingerprintEnroll());
       }
     }
   }
@@ -529,7 +528,7 @@ void processHRandSPO2()
       maxim_max30102_read_fifo((aun_ir_buffer + i), (aun_red_buffer + ii));
       //maxim_max30102_read_fifo((aun_red_buffer+i), (aun_ir_buffer+i));
     }
-
+///
     //calculate heart rate and SpO2 after BUFFER_SIZE samples (ST seconds of samples) using Robert's method
     rf_heart_rate_and_oxygen_saturation(aun_ir_buffer, BUFFER_SIZE, aun_red_buffer, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid, &ratio, &correl);
     Serial.println(n_spo2);
